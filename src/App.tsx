@@ -1,10 +1,10 @@
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter as Router } from 'react-router-dom';
 import styled from "styled-components";
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import Header from './components/Header';
 import ListingsPage from './components/ListingsPage';
-import AddListingPage from './components/AddListingPage';
 import { firebaseConfig } from './firebaseConfig';
 
 // Инициализация Firebase
@@ -18,14 +18,12 @@ const AppContainer = styled.div`
 `;
 
 function App() {
+  console.log('Рендеринг App компонента');
   return (
     <Router>
       <AppContainer>
         <Header />
-        <Routes>
-          <Route path="/" element={<ListingsPage db={db} />} />
-          <Route path="/add" element={<AddListingPage db={db} />} />
-        </Routes>
+        <ListingsPage db={db} />
       </AppContainer>
     </Router>
   );

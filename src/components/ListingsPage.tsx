@@ -1,65 +1,74 @@
-import { useState, useEffect } from "react";
-import { collection, onSnapshot, Firestore, query, orderBy } from "firebase/firestore";
-import { Grid, Card, CardContent, CardMedia, Typography } from "@mui/material";
-
-interface Listing {
-  id: string;
-  description: string;
-  imageUrl: string;
-  startDate: string;
-  endDate: string;
-  contact: string;
-}
+import React, { useState, useEffect } from 'react';
+import { collection, getDocs, Firestore } from 'firebase/firestore';
+import ErrorDisplay from './ErrorDisplay';
 
 interface ListingsPageProps {
   db: Firestore;
 }
 
-function ListingsPage({ db }: ListingsPageProps) {
+interface Listing {
+  id: string;
+  title: string;
+  description: string;
+}
+
+const ListingsPage: React.FC<ListingsPageProps> = ({ db }) => {
   const [listings, setListings] = useState<Listing[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const listingsRef = collection(db, "listings");
-    const q = query(listingsRef, orderBy("createdAt", "desc")); // Сортировка по дате создания
+    console.log('ListingsPage компонент смонтирован');
+    const fetchListings = async () => {
+      console.log('Начало загрузки объявлений');
+      setIsLoading(true);
+      try {
+        const listingsCollection = collection(db, 'listings');
+        const listingsSnapshot = await getDocs(listingsCollection);
+        const listingsData = listingsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Listing[];
+        console.log('Объявления загружены:', listingsData);
+        setListings(listingsData);
+        setError(null);
+      } catch (error) {
+        console.error('Ошибка при загрузке объявлений:', error);
+        setError('Произошла ошибка при загрузке объявлений. Пожалуйста, попробуйте позже.');
+      } finally {
+        setIsLoading(false);
+        console.log('Загрузка объявлений завершена');
+      }
+    };
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const updatedListings = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Listing[];
-      setListings(updatedListings);
-    });
-
-    return () => unsubscribe();
+    fetchListings();
   }, [db]);
 
+  console.log('Рендеринг ListingsPage', { isLoading, error, listingsCount: listings.length });
+
+  if (isLoading) {
+    return <p>Загрузка объявлений...</p>;
+  }
+
+  if (error) {
+    return <ErrorDisplay error={error} />;
+  }
+
   return (
-    <Grid container spacing={3}>
-      {listings.map((listing) => (
-        <Grid item xs={12} sm={6} md={4} key={listing.id}>
-          <Card>
-            <CardMedia
-              component="img"
-              height="200"
-              image={listing.imageUrl}
-              alt={listing.description}
-            />
-            <CardContent>
-              <Typography variant="body2" color="text.secondary">
-                {listing.description}
-              </Typography>
-              <Typography variant="body2">
-                Даты: {listing.startDate} - {listing.endDate}
-              </Typography>
-              <Typography variant="body2">
-                Контакты: {listing.contact}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      ))}
-    </Grid>
+    <div>
+      <h1>Объявления</h1>
+      {listings.length === 0 ? (
+        <p>Нет доступных объявлений.</p>
+      ) : (
+        listings.map(listing => (
+          <div key={listing.id}>
+            <h2>{listing.title}</h2>
+            <p>{listing.description}</p>
+          </div>
+        ))
+      )}
+    </div>
   );
-}
+};
 
 export default ListingsPage;
