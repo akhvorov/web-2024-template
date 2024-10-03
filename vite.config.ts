@@ -5,4 +5,17 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   base: "/web-2024-template/", // Add this line
+  resolve: {
+    alias: {
+      '@': '/src',
+    },
+  },
+  optimizeDeps: {
+    include: ['react/jsx-dev-runtime']
+  },
+  server: {
+    hmr: {
+      overlay: false
+    }
+  }
 });
