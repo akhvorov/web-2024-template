@@ -1,31 +1,45 @@
 import { useState, useEffect } from "react";
-import useLocalStorageState from "use-local-storage-state";
 import styled from "styled-components";
 import {
   Typography,
   TextField,
   Button,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemSecondaryAction,
-  IconButton,
-  Checkbox,
+  Card,
+  CardContent,
+  CardMedia,
+  Grid,
 } from "@mui/material";
-import DeleteIcon from "@mui/icons-material/Delete";
-import EditIcon from "@mui/icons-material/Edit";
+import { initializeApp } from "firebase/app";
+import { getFirestore, collection, addDoc, getDocs, onSnapshot } from "firebase/firestore";
 
-interface Todo {
-  id: number;
-  text: string;
-  done: boolean;
+// Конфигурация Firebase (замените на свои данные)
+const firebaseConfig = {
+  apiKey: "AIzaSyCHPBZoJ8ziWW416y4E62SEXB--uirW9aM",
+  authDomain: "flatsharing-3593f.firebaseapp.com",
+  projectId: "flatsharing-3593f",
+  storageBucket: "flatsharing-3593f.appspot.com",
+  messagingSenderId: "245652534206",
+  appId: "1:245652534206:web:b7baa63d7b4713f889bfef",
+  measurementId: "G-C88T531LK5"
+};
+
+// Инициализация Firebase
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+interface Listing {
+  id: string;
+  description: string;
+  imageUrl: string;
+  startDate: string;
+  endDate: string;
+  contact: string;
 }
 
 const AppContainer = styled.div`
-  max-width: 600px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 2rem;
-  text-align: center;
 `;
 
 const StyledButton = styled(Button)`
@@ -34,140 +48,136 @@ const StyledButton = styled(Button)`
   }
 `;
 
-const StyledListItemText = styled(ListItemText)<{ done: boolean }>`
-  && {
-    text-decoration: ${(props) => (props.done ? "line-through" : "none")};
-  }
-`;
-
 function App() {
-  const [todos, setTodos] = useLocalStorageState<Todo[]>("todos", {
-    defaultValue: [],
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [newListing, setNewListing] = useState<Omit<Listing, "id">>({
+    description: "",
+    imageUrl: "",
+    startDate: "",
+    endDate: "",
+    contact: "",
   });
-  const [newTodo, setNewTodo] = useState("");
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editText, setEditText] = useState(""); // Add this line
 
   useEffect(() => {
-    if (todos.length === 0) {
-      const boilerplateTodos = [
-        { id: 1, text: "Install Node.js", done: false },
-        { id: 2, text: "Install Cursor IDE", done: false },
-        { id: 3, text: "Log into Github", done: false },
-        { id: 4, text: "Fork a repo", done: false },
-        { id: 5, text: "Make changes", done: false },
-        { id: 6, text: "Commit", done: false },
-        { id: 7, text: "Deploy", done: false },
-      ];
-      setTodos(boilerplateTodos);
+    const unsubscribe = onSnapshot(collection(db, "listings"), (snapshot) => {
+      const updatedListings = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Listing[];
+      setListings(updatedListings);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleAddListing = async () => {
+    if (newListing.description.trim() !== "") {
+      try {
+        await addDoc(collection(db, "listings"), newListing);
+        setNewListing({
+          description: "",
+          imageUrl: "",
+          startDate: "",
+          endDate: "",
+          contact: "",
+        });
+      } catch (error) {
+        console.error("Ошибка при добавлении объявления:", error);
+      }
     }
-  }, [todos, setTodos]);
-
-  const handleAddTodo = () => {
-    if (newTodo.trim() !== "") {
-      setTodos([
-        ...todos,
-        { id: Date.now(), text: newTodo.trim(), done: false },
-      ]);
-      setNewTodo("");
-    }
-  };
-
-  const handleDeleteTodo = (id: number) => {
-    setTodos(todos.filter((todo) => todo.id !== id));
-  };
-
-  const handleToggleTodo = (id: number) => {
-    setTodos(
-      todos.map((todo) =>
-        todo.id === id ? { ...todo, done: !todo.done } : todo
-      )
-    );
-  };
-
-  const handleEditTodo = (id: number) => {
-    setEditingId(id);
-    const todoToEdit = todos.find((todo) => todo.id === id);
-    if (todoToEdit) {
-      setEditText(todoToEdit.text);
-    }
-  };
-
-  const handleUpdateTodo = (id: number) => {
-    if (editText.trim() !== "") {
-      setTodos(
-        todos.map((todo) =>
-          todo.id === id ? { ...todo, text: editText.trim() } : todo
-        )
-      );
-    }
-    setEditingId(null);
-    setEditText("");
   };
 
   return (
     <AppContainer>
       <Typography variant="h4" component="h1" gutterBottom>
-        Todo List
+        Объявления о сдаче квартир в саблет
       </Typography>
-      <TextField
-        fullWidth
-        variant="outlined"
-        label="New Todo"
-        value={newTodo}
-        onChange={(e) => setNewTodo(e.target.value)}
-        onKeyPress={(e) => e.key === "Enter" && handleAddTodo()}
-        autoFocus // Add this line to enable autofocus
-      />
+      <Grid container spacing={2}>
+        <Grid item xs={12} sm={6}>
+          <TextField
+            fullWidth
+            variant="outlined"
+            label="Описание"
+            value={newListing.description}
+            onChange={(e) => setNewListing({ ...newListing, description: e.target.value })}
+            multiline
+            rows={4}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <TextField
+            fullWidth
+            variant="outlined"
+            label="URL изображения"
+            value={newListing.imageUrl}
+            onChange={(e) => setNewListing({ ...newListing, imageUrl: e.target.value })}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <TextField
+            fullWidth
+            variant="outlined"
+            label="Дата начала"
+            type="date"
+            value={newListing.startDate}
+            onChange={(e) => setNewListing({ ...newListing, startDate: e.target.value })}
+            InputLabelProps={{ shrink: true }}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <TextField
+            fullWidth
+            variant="outlined"
+            label="Дата окончания"
+            type="date"
+            value={newListing.endDate}
+            onChange={(e) => setNewListing({ ...newListing, endDate: e.target.value })}
+            InputLabelProps={{ shrink: true }}
+          />
+        </Grid>
+        <Grid item xs={12}>
+          <TextField
+            fullWidth
+            variant="outlined"
+            label="Контактная информация"
+            value={newListing.contact}
+            onChange={(e) => setNewListing({ ...newListing, contact: e.target.value })}
+          />
+        </Grid>
+      </Grid>
       <StyledButton
         variant="contained"
         color="primary"
         fullWidth
-        onClick={handleAddTodo}
+        onClick={handleAddListing}
       >
-        Add Todo
+        Добавить объявление
       </StyledButton>
-      <List>
-        {todos.map((todo) => (
-          <ListItem key={todo.id} dense>
-            <Checkbox
-              edge="start"
-              checked={todo.done}
-              onChange={() => handleToggleTodo(todo.id)}
-            />
-            {editingId === todo.id ? (
-              <TextField
-                fullWidth
-                value={editText}
-                onChange={(e) => setEditText(e.target.value)}
-                onBlur={() => handleUpdateTodo(todo.id)}
-                onKeyPress={(e) =>
-                  e.key === "Enter" && handleUpdateTodo(todo.id)
-                }
-                autoFocus
+      <Grid container spacing={3} style={{ marginTop: '2rem' }}>
+        {listings.map((listing) => (
+          <Grid item xs={12} sm={6} md={4} key={listing.id}>
+            <Card>
+              <CardMedia
+                component="img"
+                height="200"
+                image={listing.imageUrl}
+                alt={listing.description}
               />
-            ) : (
-              <StyledListItemText primary={todo.text} done={todo.done} />
-            )}
-            <ListItemSecondaryAction>
-              <IconButton
-                edge="end"
-                aria-label="edit"
-                onClick={() => handleEditTodo(todo.id)}
-              >
-                <EditIcon />
-              </IconButton>
-              <IconButton
-                edge="end"
-                aria-label="delete"
-                onClick={() => handleDeleteTodo(todo.id)}
-              >
-                <DeleteIcon />
-              </IconButton>
-            </ListItemSecondaryAction>
-          </ListItem>
+              <CardContent>
+                <Typography variant="body2" color="text.secondary">
+                  {listing.description}
+                </Typography>
+                <Typography variant="body2">
+                  Даты: {listing.startDate} - {listing.endDate}
+                </Typography>
+                <Typography variant="body2">
+                  Контакты: {listing.contact}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
         ))}
-      </List>
+      </Grid>
     </AppContainer>
   );
 }
